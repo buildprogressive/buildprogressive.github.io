@@ -1,37 +1,42 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<title>Build Progressive</title>
-	<link rel="stylesheet" href="assets/app.css">
+  <meta charset="UTF-8">
+  <title>Build Progressive</title>
+  <link rel="stylesheet" href="assets/app.css">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js');
+    }
+  </script>
 </head>
 <body>
-	<h1>
-		Build Progressive
-	</h1>
+  <h1>
+    Build Progressive
+  </h1>
 
-	<p>
-		Build Progressive is a <strong>free, online field guide</strong> to help you build better, faster en more resilient websites and web applications, using the latest web technologies.
-	</p>
+  <p>
+    Build Progressive is a <strong>free, online field guide</strong> to help you build better, faster en more resilient websites and web applications, using the latest web technologies.
+  </p>
 
-	<h2>
-		Table of Contents
-	</h2>
+  <h2>
+    Table of Contents
+  </h2>
 
-	<p class="muted">
-		This is a work in progress. If you want to contribute, everything <a href="https://github.com/buildprogressive" rel="noopener">lives on GitHub</a> and all help is much appreciated. Feel free to open an issue on Github for questions or feedback.
-	</p>
+  <p class="muted">
+    This is a work in progress. If you want to contribute, everything <a href="https://github.com/buildprogressive" rel="noopener">lives on GitHub</a> and all help is much appreciated. Feel free to open an issue on Github for questions or feedback.
+  </p>
 
-	<ul>
-		<li>
-			<a href="service-workers.html">
-				Working with Service Workers
-			</a>
-		</li>
-	</ul>
+  <ul>
+    <li>
+      <a href="service-workers.html">
+        Working with Service Workers
+      </a>
+    </li>
+  </ul>
 
-	<p>
-		Want to keep updated? <a href="https://twitter.com/pieterbeulque" rel="noopener">I will be tweeting about this</a> from time to time.
-	</p>
+  <p>
+    Want to keep updated? <a href="https://twitter.com/pieterbeulque" rel="noopener">I will be tweeting about this</a> from time to time.
+  </p>
 </body>
 </html>
