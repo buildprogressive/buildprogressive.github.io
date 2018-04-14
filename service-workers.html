@@ -30,6 +30,10 @@
 
   <ol>
     <li>
+      <a href="#toc-0">Adding a Service Worker to your site</a>
+    </li>
+
+    <li>
       <a href="#toc-1">The Service Worker Lifecycle</a>
 
       <ol>
@@ -64,6 +68,20 @@
       </ol>
     </li>
   </ol>
+
+  <h2 id="toc-0">
+    Adding a Service Worker to your site
+  </h2>
+
+<pre>&lt;script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js');
+  }
+&lt;/script></pre>
+
+  <p>
+    That&rsquo;s right, nothing more than one function call is needed to unlock the powerful features of Service Workers. To avoid breaking older browsers, the registration is best wrapped inside a feature detection conditional.
+  </p>
 
   <h2 id="toc-1">
     The Service Worker lifecycle
