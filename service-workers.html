@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Service Workers | Build Progressive</title>
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+  <h1>
+    Working with Service Workers
+  </h1>
+
+  <p>
+    Service Workers are a tool given to JavaScript developers to write code handling caching, among other things.
+    It allows you to write code that can control any outgoing requests.
+  </p>
+
+  <p>
+    I've written a <a href="https://github.com/buildprogressive/service-workers/blob/master/simple/simple.js" rel="noopener">straight-forward, simple Service Worker</a>. It has a lot of comments to get you accustomed with the basic principles. Let's walk through the code and get our feet wet with Service Workers!
+  </p>
+
+  <h2>
+    Table of Contents
+  </h2>
+
+  <ol>
+    <li>
+      <a href="#toc-1">The Service Worker Lifecycle</a>
+
+      <ol>
+        <li><a href="#toc-1-1">Installation</a></li>
+        <li><a href="#toc-1-2">Activation</a></li>
+      </ol>
+    </li>
+
+    <li>
+      <a href="#toc-2">Hooking into HTTP requests</a>
+
+      <ol>
+        <li><a href="#toc-2-1">Some caution to begin with</a></li>
+        <li><a href="#toc-2-2">Responding to the request</a></li>
+        <li>
+          <a href="#toc-2-3">Determining a caching strategy</a>
+          <ol>
+            <li><a href="#toc-2-3-1">Prefer network, use cache as a fallback</a></li>
+            <li><a href="#toc-2-3-2">Prefer cache, fetch from network if unavailable</a></li>
+            <li><a href="#toc-2-3-3">Revalidating the resource in the background</a></li>
+          </ol>
+        </li>
+      </ol>
+    </li>
+
+    <li>
+      <a href="#toc-3">Quick performance improvements</a>
+
+      <ol>
+        <li><a href="#toc-3-1">Support Navigation Preloads</a></li>
+        <li><a href="#toc-3-2">Race the network to handle flaky connections</a></li>
+      </ol>
+    </li>
+  </ol>
+
+  <h2 id="toc-1">
+    The Service Worker lifecycle
+  </h2>
+
+  <h3 id="toc-1-1">
+    Installation
+  </h3>
+
+<pre>addEventListener('install', (e) => {
+  e.waitUntil(self.skipWaiting());
+});</pre>
+
+  <p>
+    The first block of code listens for the <code>install</code> event. This is an event that gets triggered when the browser has loaded the Service Worker and tries to install it. At this moment, any previously installed Service Workers are still doing their thing. Inside the <code>install</code> event handler, you can make the browser wait for certain things to happen by passing a Promise to the <code>event.waitUntil</code> method.
+  </p>
+
+  <p>
+    <code>self.skipWaiting()</code> tells the browser that it shouldn&rsquo;t wait for previous Service Workers to properly detach and just move on with the installation already. This forces the Service Worker to become the active Service Worker, regardless of any other Service Workers.
+  </p>
+
+  <h3 id="toc-1-2">
+    Activation
+  </h3>
+
+<pre>addEventListener('activate', (e) => {
+  e.waitUntil(self.clients.claim());
+});</pre>
+
+  <p>
+    When the Service Worker is installed, it will get activated. This is the right moment to — you guessed it — activate the Service Worker. 
+  </p>
+
+  <p>
+    <code>self.clients.claim()</code> allows the Service Worker to take over all existing clients. By default, the Service Worker would only become active on the next page load. Claiming all active clients connects the Service Worker to the active browser session.
+  </p>
+
+  <h2 id="toc-2">
+    Hooking into HTTP requests
+  </h2>
+
+  <h3 id="toc-2-1">
+    Some caution to begin with
+  </h3>
+
+<pre>if (method !== 'GET' && method !== 'HEAD') {
+  return;
+}</pre>
+
+  <p>
+    With great power, comes great responsibility. To make sure the Service Worker doesn't accidentally mess with anything critical, it will short-circuit if the request is not a <code>GET</code> request.
+  </p>
+
+  <h3 id="toc-2-2">
+    Responding to the request
+  </h3>
+
+  <pre>addEventListener('fetch', (e) => {
+  const request = e.request;
+
+  e.respondWith((async function() {
+    const response = fetch(request);
+    return response;
+  })());
+});</pre>
+
+  <p>
+    The Service Worker can send any arbitrary response to any request by passing a resolving Promise to the event with <code>e.respondWith()</code>. That's the hook provided to web developers to run custom code on the incoming request & determine what to do with it. 
+  </p>
+
+  <h3 id="toc-2-3">
+    Determining a caching strategy
+  </h3>
+
+  <p>
+    When a request comes in, there are a lot of different strategies to handling a request. You can work offline only, network only, serve from cache and use the network as a fallback, or vice versa. 
+  </p>
+
+  <p>
+    The example uses two caching strategies. For HTML documents, we want to get the freshest content possible. The Service Worker will always try to fetch the latest data over the network. For all other assets, a cached version is sufficient. As an extra, the Service Worker will go ahead and try to fetch a new version in the background.
+  </p>
+
+  <h4 id="toc-2-3-1">
+    Prefer network, use cache as a fallback
+  </h4>
+
+<pre>addEventListener('fetch', (e) => {
+  const request = e.request;
+
+  e.respondWith((async function() {
+    const response = fetch(request);
+
+    return response.catch(async function() {
+      const cached = await caches.match(request);
+      return cached || response;
+    });
+  })());
+});</pre>
+
+  <p>
+    The Service Worker tries to <code>fetch()</code> the request from the network. If the network request resolves, the Service Worker hands that resolved request back to the browser. If it doesn&rsquo;t, however, it&rsquo;ll find the request in the cache: <code>await caches.match(request)</code>. The Service Worker will try and find a cached version of the request. When a cached response is found, the Service Worker will pass it to the browser. If the network request failed and there is nothing to fall back on in the cache, the Service Worker returns the failed request for the browser to handle.
+  </p>
+
+  <h4 id="toc-2-3-2">
+    Prefer cache, fetch from network if unavailable 
+  </h4>
+  
+<pre>addEventListener('fetch', (e) => {
+  const request = e.request;
+
+  e.respondWith(
+    (async function() {
+      const cached = await caches.match(request);
+      return cached || fetch(request);
+    })()
+  );
+});</pre>
+
+  <p>
+    When a request arrives in the Service Worker, before letting it go the network, the Service Worker looks for it in its cache. If a cached response is found, that response will be returned. If the cached version is <code>undefined</code>, the Service Worker lets the request go through to the network.
+  </p>
+
+  <h4 id="toc-2-3-3">
+    Revalidating the resource in the background
+  </h4>
+
+  <p>
+    However, both implementations of the caching strategies discussed above will never add anything to the cache. We're doing that because for every single request, we want the Service Worker to revalidate the fetched resource in the background.
+  </p>
+
+  <p>
+    Keep in mind that the Service Worker is not the only cache that a browser has. For example, if your CSS file has a <code>Cache-Control: immutable</code> HTTP header and the Service Worker fetches a new version, that request will still hit the disk cache instead of downloading the resource.
+  </p>
+
+<pre>addEventListener('fetch', (e) => {
+  const request = e.request;
+
+  e.respondWith(
+    (async function() {
+      const response = fetch(request);
+
+      e.waitUntil(
+        (async function() {
+          const clone = (await response).clone();
+          const cache = await caches.open(cacheName);
+          await cache.put(request, clone);
+        })()
+      );
+
+      // … Handle the request itself
+    })()
+  );
+});</pre>
+
+  <p>
+    The response isn&rsquo;t actually delayed by using <code>e.waitUntil</code>. Instead, it is a way to communicate to the browser that your Service Worker is still doing some work. You can pass Promises or async functions to <code>e.waitUntil</code> and the Service Worker will only be terminated once they are all resolved.
+  </p>
+
+  <p>
+    The Service Worker here waits for the network request to finish. When it does, it stores the response in the cache.
+  </p>
+
+  <p>
+    Note that a network response can be used only once. That's why the Service Worker clones the response before storing it in the cache: <code>const clone = (await response).clone()</code>.
+  </p>
+
+  <h2 id="toc-3">
+    Quick performance improvements
+  </h2>
+
+  <p>
+    The major use case for Service Workers is of course the impressive performance improvements it offers to your end users. In a lot of cases, we can assume that serving from disk will be a lot faster than having to go over the network for every request. That is only the tip of the iceberg: the flexibility of Service Workers gives you as a developer a lot to work with. In the example we&rsquo;re discussing, there are two additional performance improvements.
+  </p>
+
+  <h3 id="toc-3-1">
+    Support Navigation Preloads
+  </h3>
+
+  <p>
+    Service Workers live independently off browser sessions and are generally considered more persistent. However, with device resources being limited, it is never a given that a Service Worker will already be active to act on a HTTP request. It turned out that sometimes, booting a Service Worker so it can work with a HTTP request added noticable overhead to the response time.
+  </p>
+
+  <p>
+    A solution for that was Navigation Preloads. This is an unofficial, experimental technology that currently only works in Webkit-browsers. However, it&rsquo;s rather straight-forward to add to a Service Worker and it can provide an undeniable speed improvement, so why not add it?
+  </p>
+
+  <p>
+    Adding support for Navigation Preloads has two parts to it. First, in the <code>activate</code> handler, the Service Worker has to enable Navigation Preload support.
+  </p>
+
+<pre>addEventListener('activate', (e) => {
+  e.waitUntil(
+    (async function() {
+      if (self.registration.navigationPreload) {
+        await self.registration.navigationPreload.enable();
+      }
+    })()
+  );
+});</pre>
+
+  <p>
+    That's enough to inform the browser that you&rsquo;re planning on using the preloaded response, which in turn will make the browser do navigation preloads. It&rsquo;s important to actually consume the preloaded response if the Service Worker enables the support. Failing to do so would result in duplicate network requests.
+  </p>
+
+<pre>addEventListener('fetch', (e) => {
+  const request = e.request;
+
+  e.respondWith(
+    (async function() {
+      const response = Promise.resolve(e.preloadResponse).then(
+        (preloaded) => preloaded || fetch(request)
+      );
+
+      return response;
+    })()
+  );
+});</pre>
+
+  <p>
+    If the browser supports Navigation Preloads, <code>response</code> will consume the preloaded response once it&rsquo;s completely finished. In browsers that don&rsquo;t support Navigation Preloads, <code>e.preloadResponse</code> will be <code>undefined</code> and a regular network request will be started.
+  </p>
+
+  <h3 id="toc-3-2">
+    Race the network to handle flaky connections
+  </h3>
+
+  <p>
+    We&rsquo;ve all been in situations where our internet connection was terribly slow or non-existing at all. The worst of all is the <em>lie-fi</em> connection when your device is connected to a network, but in reality, no data is coming down the wire. 
+  </p>
+
+  <p>
+    A possible solution for dreadingly slow network responses could be to fall back on cached versions anyway. The Service Worker can add a timeout to the network request and decide to check the cache if the network is taking too long.
+  </p>
+
+<pre>addEventListener('fetch', (e) => {
+  const request = e.request;
+
+  e.respondWith(
+    (async function() {
+      return Promise.race([
+        fetch(request),
+        new Promise((_, reject) => {
+          setTimeout(() => reject(), 2000);
+        })
+      ]).catch(async function() {
+        const cached = await caches.match(request);
+        return cached || response;
+      });
+    })()
+  );
+});</pre>
+
+  <p>
+    The Service Worker starts two Promises at the same time. One is the actual network request, the other is a timer that will <code>reject()</code> after two seconds. <code>Promise.race</code> is a method that returns a Promise that will resolve or reject when the first Promise of the ones passed does so.
+  </p>
+
+  <p>
+    If the response returns within two seconds, the fresh response will be passed on to the browser.
+    However, if the timer rejects first after two seconds, the Service Worker will look for a cached response.
+    If nothing is found in the cache, the (still pending) network request is returned anyway for the browser to handle.
+  </p>
+
+  <p>
+    Using possibly stale content instead of a forever hanging network request is a small trade-off to make for an impactful user experience improvement.
+  </p>
+
+  <h2>
+    Tying it all together
+  </h2>
+
+  <p>
+    That&rsquo;s about it! There is a lot more to cover about Service Workers, depending on what you are trying to do with it. I am convinced, however, that this is a good start for any simple site or blog that wants to leverage the offline capabilities and caching possibilities that come with Service Workers.
+  </p>
+
+  <p>
+    And again, <a href="https://github.com/buildprogressive/service-workers/blob/master/simple/simple.js" rel="noopener">find the full code on GitHub</a>.
+  </p>
+
+  <a href="index.html" class="back muted">Back to Build Progressive</a>
+</body>
+</html>
